@@ -6,10 +6,9 @@ import { switchMap, catchError, map, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 
 import * as AuthActions from './auth.actions';
+import { environment } from 'src/environments/environment';
 import { User } from '../user.model';
 import { AuthService } from '../auth.service';
-
-import { firebaseKey } from '../../../../config/config';
 
 export interface AuthResponseData {
     kind: string;
@@ -37,7 +36,8 @@ const handleAuthentication = (
         email: email,
         userId: userId,
         token: token,
-        expirationDate: expirationDate
+        expirationDate: expirationDate,
+        redirect: true
     });
 };
 
@@ -72,7 +72,7 @@ export class AuthEffects {
             return this.http
                 .post<AuthResponseData>(
                     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' +
-                    firebaseKey,
+                    environment.firebaseAPIKey,
                     {
                         email: authData.payload.email,
                         password: authData.payload.password,
@@ -100,7 +100,7 @@ export class AuthEffects {
             return this.http
                 .post<AuthResponseData>(
                     'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' +
-                    firebaseKey,
+                    environment.firebaseAPIKey,
                     {
                         email: authData.payload.email,
                         password: authData.payload.password,
@@ -131,24 +131,25 @@ export class AuthEffects {
             } = JSON.parse(localStorage.getItem('userData'));
 
             if (!userData) {
-                return {type: 'DUMMY'};
+                return { type: 'DUMMY' };
             }
 
             const loadedUser = new User(userData.email, userData.id, userData._token, new Date(userData._tokenExpirationDate));
 
             if (loadedUser.token) {
-                const expirationDuration = 
-                    new Date(userData._tokenExpirationDate).getTime() - 
+                const expirationDuration =
+                    new Date(userData._tokenExpirationDate).getTime() -
                     new Date().getTime();
                 this.authService.setLogoutTimer(expirationDuration);
                 return new AuthActions.AuthenticateSuccess({
                     email: loadedUser.email,
                     userId: loadedUser.id,
                     token: loadedUser.token,
-                    expirationDate: new Date(userData._tokenExpirationDate)
+                    expirationDate: new Date(userData._tokenExpirationDate),
+                    redirect: false
                 });
             }
-            return {type: 'DUMMY'};
+            return { type: 'DUMMY' };
         })
     );
 
@@ -165,14 +166,16 @@ export class AuthEffects {
     @Effect({ dispatch: false })
     authRedirect = this.actions$.pipe(
         ofType(AuthActions.AUTHENTICATE_SUCCESS),
-        tap(() => {
-            this.router.navigate(['/']);
+        tap((authSuccessAction: AuthActions.AuthenticateSuccess) => {
+            if (authSuccessAction.payload.redirect) {
+                this.router.navigate(['/']);
+            }
         })
     );
 
     constructor(
-        private actions$: Actions, 
-        private http: HttpClient, 
+        private actions$: Actions,
+        private http: HttpClient,
         private router: Router,
         private authService: AuthService) { }
 }

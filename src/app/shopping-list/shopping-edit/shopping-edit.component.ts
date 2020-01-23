@@ -18,7 +18,8 @@ export class ShoppingEditComponent implements OnInit, OnDestroy {
   editMode: boolean = false;
 
   constructor(
-    private store: Store<fromApp.AppState>) { }
+    private store: Store<fromApp.AppState>
+  ) { }
 
   ngOnInit() {
     this.subscription = this.store.select('shoppingList').subscribe(stateDate => {
